@@ -1,0 +1,48 @@
+#pragma once
+#include <map>
+#include <string>
+#include <memory>
+#include "DiagnosticEngine.h"
+#include "DiagnosisResult.h"
+
+// Структура для хранения записи в кэше
+struct CacheEntry {
+    std::unique_ptr<DiagnosisResult> result; // результат диагностики
+    std::time_t timestamp; // время создания записи
+
+    // Конструктор
+    CacheEntry(std::unique_ptr<DiagnosisResult> res)
+        : result(std::move(res)), timestamp(std::time(nullptr)) {}
+};
+
+// Прокси для кэширования результатов диагностики (паттерн Proxy)
+class DiagnosticCacheProxy {
+private:
+    std::unique_ptr<DiagnosticEngine> realEngine; // реальный движок
+    std::map<std::string, std::unique_ptr<CacheEntry>> cache; // кэш: ключ -> результат
+    int hits; // количество попаданий в кэш
+    int misses; // количество промахов
+    size_t maxCacheSize; // максимальный размер кэша
+
+public:
+    DiagnosticCacheProxy(std::unique_ptr<DiagnosticEngine> engine, size_t maxSize = 100);
+
+    // Диагностика с использованием кэша
+    std::unique_ptr<DiagnosisResult> diagnose(const Appointment* appointment);
+
+    // Очистить кэш
+    void clearCache();
+
+    // Получить статистику
+    int getHits() const;
+    int getMisses() const;
+    float getHitRate() const; // процент попаданий
+    size_t getCacheSize() const; // текущий размер кэша
+
+private:
+    // Сгенерировать ключ для кэша на основе данных приема
+    std::string generateCacheKey(const Appointment* appointment) const;
+
+    // Удалить старые записи при переполнении кэша
+    void cleanOldCache();
+};
