@@ -105,9 +105,6 @@
     <ClCompile Include="DiagnosisHistory.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="PatientMedicalRecord.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="PatientMonitor.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
@@ -216,9 +213,6 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="DiagnosisHistory.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="PatientMedicalRecord.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="IObserver.h">

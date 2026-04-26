@@ -4,7 +4,15 @@
 #include <vector>
 #include <map>
 #include "AppointmentState.h"
+#include "RegistrationState.h"
+#include "ExaminationState.h"
+#include "DiagnosisState.h"
+#include "RecommendationState.h"
+#include "CompletedState.h"
 #include "DiagnosisResult.h"
+
+class DiagnosticCacheProxy;
+class Appointment;
 
 // Контекст приема пациента
 class AppointmentContext {
@@ -16,6 +24,9 @@ private:
     std::map<std::string, std::string> examinationData; // данные осмотра
     std::unique_ptr<DiagnosisResult> diagnosis; // результат диагностики
     bool diagnosisComplete;             // флаг завершения диагностики
+    DiagnosticCacheProxy* diagnosticProxy;   // диагностический движок
+    Appointment* currentAppointment;          // текущий приём
+    bool diagnosticReady;                     // флаг готовности диагностики
 
 public:
     AppointmentContext(const std::string& name, int age);
@@ -47,4 +58,23 @@ public:
 
     // Печать информации о приеме
     void printAppointmentInfo() const;
+
+    // Создать стандартную цепочку состояний внутри контекста
+    void setupDiagnostics(DiagnosticCacheProxy* proxy, Appointment* appointment);
+    void createStandardWorkflow();
+
+    // Освободить память состояний
+    void cleanupWorkflow();
+
+    DiagnosticCacheProxy* getDiagnosticProxy() const;
+    Appointment* getCurrentAppointment() const;
+    bool isDiagnosticReady() const;
+
+private:
+    // Владеющие указатели на состояния (чтобы автоматически удалялись)
+    std::unique_ptr<AppointmentState> registrationState;
+    std::unique_ptr<AppointmentState> examinationState;
+    std::unique_ptr<AppointmentState> diagnosisState;
+    std::unique_ptr<AppointmentState> recommendationState;
+    std::unique_ptr<AppointmentState> completedState;
 };

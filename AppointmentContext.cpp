@@ -5,6 +5,9 @@ AppointmentContext::AppointmentContext(const std::string& name, int age)
     : currentState(nullptr),
     patientName(name),
     patientAge(age),
+    diagnosticProxy(nullptr),
+    currentAppointment(nullptr),
+    diagnosticReady(false),
     diagnosisComplete(false) {
 }
 
@@ -98,4 +101,60 @@ void AppointmentContext::printAppointmentInfo() const {
 
     std::cout << "Текущее состояние: " << (currentState ? currentState->getStateName() : "не установлено") << "\n";
     std::cout << "===========================\n";
+}
+
+void AppointmentContext::createStandardWorkflow() {
+    // Создаем все состояния внутри контекста
+    registrationState = std::make_unique<RegistrationState>();
+    examinationState = std::make_unique<ExaminationState>();
+    diagnosisState = std::make_unique<DiagnosisState>();
+    recommendationState = std::make_unique<RecommendationState>();
+    completedState = std::make_unique<CompletedState>();
+
+    // Связываем в цепочку
+    registrationState->setNextState(examinationState.get());
+    examinationState->setNextState(diagnosisState.get());
+    diagnosisState->setNextState(recommendationState.get());
+    recommendationState->setNextState(completedState.get());
+    completedState->setNextState(nullptr);
+
+    // Устанавливаем начальное состояние
+    currentState = registrationState.get();
+
+    std::cout << "[AppointmentContext] Цепочка состояний создана: ";
+    std::cout << "Регистрация -> Осмотр -> Диагностика -> Рекомендации -> Завершение\n";
+}
+
+void AppointmentContext::cleanupWorkflow() {
+    // unique_ptr автоматически удалят состояния при разрушении контекста
+    // Обнуляем текущее состояние
+    currentState = nullptr;
+
+    // Обнуляем владеющие указатели в порядке, обратном созданию
+    completedState.reset();
+    recommendationState.reset();
+    diagnosisState.reset();
+    examinationState.reset();
+    registrationState.reset();
+
+    std::cout << "[AppointmentContext] Цепочка состояний удалена\n";
+}
+
+void AppointmentContext::setupDiagnostics(DiagnosticCacheProxy* proxy, Appointment* appointment) {
+    diagnosticProxy = proxy;
+    currentAppointment = appointment;
+    diagnosticReady = true;
+    std::cout << "[AppointmentContext] Диагностика настроена\n";
+}
+
+DiagnosticCacheProxy* AppointmentContext::getDiagnosticProxy() const {
+    return diagnosticProxy;
+}
+
+Appointment* AppointmentContext::getCurrentAppointment() const {
+    return currentAppointment;
+}
+
+bool AppointmentContext::isDiagnosticReady() const {
+    return diagnosticReady;
 }

@@ -165,7 +165,6 @@
     <ClCompile Include="ExperiencedFAPBuilder.cpp" />
     <ClCompile Include="LoggingService.cpp" />
     <ClCompile Include="Patient.cpp" />
-    <ClCompile Include="PatientMedicalRecord.cpp" />
     <ClCompile Include="PatientMonitor.cpp" />
     <ClCompile Include="RecommendationState.cpp" />
     <ClCompile Include="RegistrationState.cpp" />
@@ -206,7 +205,6 @@
     <ClInclude Include="ISymptomChecker.h" />
     <ClInclude Include="LoggingService.h" />
     <ClInclude Include="Patient.h" />
-    <ClInclude Include="PatientMedicalRecord.h" />
     <ClInclude Include="PatientMonitor.h" />
     <ClInclude Include="RecommendationState.h" />
     <ClInclude Include="RegistrationState.h" />

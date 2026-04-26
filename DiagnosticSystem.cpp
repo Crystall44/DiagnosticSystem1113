@@ -58,7 +58,6 @@
 // Memento
 #include "DiagnosisHistory.h"
 #include "DiagnosisMemento.h"
-#include "PatientMedicalRecord.h"
 
 // Observer
 #include "AlertSystem.h"
@@ -340,20 +339,33 @@ int main() {
     std::cout << "\n=== Сценарий 1: Базовый ФАП ===\n";
     
     // Создаем строитель для базового ФАП
-    BasicFAPBuilder basicBuilder(&directory, 0.3f);
+    BasicFAPBuilder basicBuilder1(&directory, 0.3f);
 
     // Директор управляет процессом сборки
-    director.setBuilder(&basicBuilder);
+    director.setBuilder(&basicBuilder1);
     director.constructFull();
 
     // Получаем готовый движок
-    std::unique_ptr<DiagnosticEngine> basicEngine = basicBuilder.getEngine();
+    std::unique_ptr<DiagnosticEngine> basicEngine1 = basicBuilder1.getEngine();
 
     // Выполняем диагностику
-    std::unique_ptr<DiagnosisResult> resultBasic = basicEngine->diagnose(&demoAppointment);
+    std::unique_ptr<DiagnosisResult> resultBasic = basicEngine1->diagnose(&demoAppointment);
     printDiagnosisResult(resultBasic.get(), "Базовый ФАП (SimpleDiagnostic)");
 
-    std::cout << "\n=== Сценарий 2: Опытный фельдшер ===\n";
+    std::cout << "\n=== Сценарий 2: Базовый ФАП (только алгоритм) ===\n";
+
+    // Создаем строителя
+    BasicFAPBuilder minimalBuilder(&directory, 0.3f);
+    director.setBuilder(&minimalBuilder);
+    director.constructMinimal();
+
+    // Получаем движок без чекеров
+    std::unique_ptr<DiagnosticEngine> minimalEngine = minimalBuilder.getEngine();
+
+    std::unique_ptr<DiagnosisResult> minimalResult = minimalEngine->diagnose(&demoAppointment);
+    printDiagnosisResult(minimalResult.get(), "Базовый ФАП (минимальная конфигурация)");
+
+    std::cout << "\n=== Сценарий 3: Опытный фельдшер ===\n";
 
     // Создаем строитель для опытного фельдшера
     ExperiencedFAPBuilder experiencedBuilder(&directory, "winter", 100);
@@ -368,7 +380,23 @@ int main() {
     std::unique_ptr<DiagnosisResult> resultExperienced1 = experiencedProxy->diagnose(&demoAppointment);
     printDiagnosisResult(resultExperienced1.get(), "Опытный фельдшер");
 
-    std::cout << "\n=== Сценарий 3: Консультация в ЦРБ ===\n";
+    std::cout << "\n=== Сценарий 4: Опытный фельдшер (без прокси) ===\n";
+
+    // Создаем строитель для опытного фельдшера
+    ExperiencedFAPBuilder noProxyBuilder(&directory, "winter", 100); 
+    noProxyBuilder.setNormalization(true);                                                        
+
+    // Директор собирает полную конфигурацию
+    director.setBuilder(&noProxyBuilder);
+    director.constructWithoutProxy();
+
+    // Получаем движок напрямую (без прокси)
+    std::unique_ptr<DiagnosticEngine> noProxyEngine = noProxyBuilder.getEngine();
+
+    std::unique_ptr<DiagnosisResult> noProxyResult = noProxyEngine->diagnose(&demoAppointment);
+    printDiagnosisResult(noProxyResult.get(), "Опытный фельдшер (без прокси)");  
+
+    std::cout << "\n=== Сценарий 5: Консультация в ЦРБ ===\n";
 
     // Создаем строитель для ЦРБ
     CRBBuilder crbBuilder(&directory, "winter", 100);
@@ -393,41 +421,10 @@ int main() {
 
     std::cout << "\n\n2. State\n\n";
 
-    // Создаем состояния
-    std::cout << "Создание цепочки состояний приема...\n";
-    RegistrationState* registrationState = new RegistrationState();
-    ExaminationState* examinationState = new ExaminationState();
-    DiagnosisState* diagnosisState = new DiagnosisState();
-    RecommendationState* recommendationState = new RecommendationState();
-    CompletedState* completedState = new CompletedState();
+    // 1. Создаем контекст приема
+    AppointmentContext stateContext("Петрова А.С.", 42);
 
-    // Связываем состояния в цепочку
-    registrationState->setNextState(examinationState);
-    examinationState->setNextState(diagnosisState);
-    diagnosisState->setNextState(recommendationState);
-    recommendationState->setNextState(completedState);
-    completedState->setNextState(nullptr);  // конечное состояние
-
-    std::cout << "Цепочка создана: Регистрация -> Осмотр -> Диагностика -> Рекомендации -> Завершение\n\n";
-
-    // Создаем контекст приема (пациент)
-    std::cout << "Создание приема пациента...\n";
-    AppointmentContext* patientContext = new AppointmentContext("Петрова А.С.", 42);
-
-    // Устанавливаем начальное состояние
-    patientContext->setCurrentState(registrationState);
-
-    // Выполняем все состояния по очереди
-    std::cout << "\n=== Выполнение приема ===\n";
-
-    // Шаг 1: Регистрация
-    patientContext->run();
-
-    // Шаг 2: Осмотр
-    patientContext->run();
-
-    // Шаг 3: Диагностика (нужно подключить прокси)
-    // Создаем простой движок для диагностики
+    // 2. Создаем диагностический движок
     std::unique_ptr<DiagnosticEngine> stateEngine =
         std::make_unique<DiagnosticEngine>(
             std::make_unique<WeightedDiagnostic>(true),
@@ -435,52 +432,59 @@ int main() {
             );
     stateEngine->addChecker(std::make_unique<CriticalSymptomChecker>());
 
-    // Оборачиваем в прокси
+    std::unique_ptr<EpidemiologicalChecker> stateEpiChecker =
+        std::make_unique<EpidemiologicalChecker>();
+    stateEpiChecker->setSeason("winter");
+    stateEngine->addChecker(std::move(stateEpiChecker));
+
     DiagnosticCacheProxy stateProxy(std::move(stateEngine), 10);
 
-    // Создаем временный Appointment для передачи в состояние диагностики
-    std::unique_ptr<RegularPatient> statePatient = std::make_unique<RegularPatient>("Петрова А.С.", 42, "жен");
+    // 3. Создаем приём с симптомами
+    std::unique_ptr<RegularPatient> statePatient =
+        std::make_unique<RegularPatient>("Петрова А.С.", 42, "жен");
+
     Appointment stateAppointment(statePatient.get());
     stateAppointment.addSymptom("температура 39");
     stateAppointment.addSymptom("боль в горле");
     stateAppointment.addSymptom("головная боль");
     stateAppointment.addSymptom("слабость");
 
-    // Настраиваем состояние диагностики
-    diagnosisState->setDiagnosticProxy(&stateProxy);
-    diagnosisState->setCurrentAppointment(&stateAppointment);
+    // 4. Настраиваем диагностику
+    stateContext.setupDiagnostics(&stateProxy, &stateAppointment);
 
-    // Выполняем диагностику
-    patientContext->run();
+    // 5. Создаем цепочку состояний
+    stateContext.createStandardWorkflow();
+
+    // Выполняем все состояния по очереди
+    std::cout << "\n=== Выполнение приема ===\n";
+
+    // Шаг 1: Регистрация
+    stateContext.run();
+
+    // Шаг 2: Осмотр
+    stateContext.run();
+
+    // Шаг 3: Диагностика (движок и приём берутся из контекста автоматически)
+    stateContext.run();
 
     // Шаг 4: Рекомендации
-    patientContext->run();
+    stateContext.run();
 
     // Шаг 5: Завершение
-    patientContext->run();
+    stateContext.run();
 
-    // Показываем финальную информацию
-    std::cout << "\n=== Итоговая информация ===\n";
-    patientContext->printAppointmentInfo();
+    // ИТОГОВАЯ ИНФОРМАЦИЯ
+    std::cout << "\n=== ИТОГОВАЯ ИНФОРМАЦИЯ ===\n";
+    stateContext.printAppointmentInfo();
 
-    // Очистка памяти
-    delete completedState;
-    delete recommendationState;
-    delete diagnosisState;
-    delete examinationState;
-    delete registrationState;
-    delete patientContext;
+    // Очистка
+    stateContext.cleanupWorkflow();
 
     std::cout << "\n\n3. Momento\n\n";
-    // Создаем Originator (историю диагнозов для пациента)
-    DiagnosisHistory patientHistory("Петрова А.С.");
-    std::cout << "Создана история диагностики для пациента: " << patientHistory.getPatientName() << "\n";
+    // Создаем историю диагностики (она же создает и хранит снимки)
+    DiagnosisHistory patientHistory("Петрова А.С.", 10);
 
-    // Создаем Caretaker (медицинскую карту)
-    PatientMedicalRecord medicalRecord("P-001", 10);
-    std::cout << "Создана медицинская карта ID: " << medicalRecord.getPatientId() << "\n\n";
-
-    // Создаем пациента и приемы с разными симптомами
+    // Создаем пациента
     std::unique_ptr<ChronicPatient> mementoPatient = std::make_unique<ChronicPatient>("Петрова А.С.", 42, "жен");
     mementoPatient->addChronicDisease("бронхиальная астма", "2018");
 
@@ -492,22 +496,18 @@ int main() {
     visit1.addSymptom("температура 38");
     visit1.addSymptom("слабость");
 
-    // Создаем простой диагностический движок
+    // Создаем простой движок для первого визита
     std::unique_ptr<DiagnosticEngine> simpleEngine5 = std::make_unique<DiagnosticEngine>(
             std::make_unique<SimpleDiagnostic>(0.3f),
             &directory
             );
     simpleEngine5->addChecker(std::make_unique<CriticalSymptomChecker>());
 
-    // Выполняем диагностику
-    std::unique_ptr<DiagnosisResult> resultVisit1 = simpleEngine5->diagnose(&visit1);
+    std::unique_ptr<DiagnosisResult> result5 = simpleEngine5->diagnose(&visit1);
 
-    // Создаем снимок
-    std::unique_ptr<DiagnosisMemento> snapshot1 = patientHistory.createSnapshot(&visit1, resultVisit1.get(), "SimpleDiagnostic");
-
-    // Сохраняем снимок в медицинскую карту
-    medicalRecord.addSnapshot(std::move(snapshot1));
-    std::cout << "Снимок #1 сохранен\n\n";
+    // Создаем и сразу сохраняем снимок
+    DiagnosisMemento* snap1 = patientHistory.createAndStoreSnapshot(&visit1, result5.get(), "SimpleDiagnostic");
+    snap1->printSnapshot();
 
     // Визит 2: Состояние ухудшилось (симптомы гриппа)
     std::cout << "--- Визит 2: Симптомы ухудшились (грипп) ---\n";
@@ -519,7 +519,7 @@ int main() {
     visit2.addSymptom("кашель");
     visit2.addSymptom("слабость");
 
-    // Создаем взвешенный движок
+    // Создаем взвешенный движок для второго визита
     std::unique_ptr<DiagnosticEngine> weightedEngine5 = std::make_unique<DiagnosticEngine>(
             std::make_unique<WeightedDiagnostic>(true),
             &directory
@@ -530,15 +530,10 @@ int main() {
     epiChecker5->setSeason("winter");
     weightedEngine5->addChecker(std::move(epiChecker5));
 
-    // Выполняем диагностику
-    std::unique_ptr<DiagnosisResult> resultVisit2 = weightedEngine5->diagnose(&visit2);
+    std::unique_ptr<DiagnosisResult> result6 = weightedEngine5->diagnose(&visit2);
 
-    // Создаем снимок
-    std::unique_ptr<DiagnosisMemento> snapshot2 = patientHistory.createSnapshot(&visit2, resultVisit2.get(), "WeightedDiagnostic");
-
-    // Сохраняем снимок
-    medicalRecord.addSnapshot(std::move(snapshot2));
-    std::cout << "Снимок #2 сохранен\n\n";
+    DiagnosisMemento* snap2 = patientHistory.createAndStoreSnapshot(&visit2, result6.get(), "WeightedDiagnostic");
+    snap2->printSnapshot();
 
     // Визит 3: Контрольный осмотр (симптомы ослабли)
     std::cout << "--- Визит 3: Контрольный осмотр ---\n";
@@ -546,56 +541,40 @@ int main() {
     visit3.addSymptom("кашель");
     visit3.addSymptom("слабость");
 
-    // Создаем байесовский движок
-    std::unique_ptr<BayesianDiagnostic> bayesian5 = std::make_unique<BayesianDiagnostic>(0.01f);
-    bayesian5->setPriorProbability("ОРВИ", 0.3f);
-    bayesian5->setPriorProbability("Грипп", 0.2f);
-
-    std::unique_ptr<DiagnosticEngine> bayesianEngine5 = std::make_unique<DiagnosticEngine>(
-            std::move(bayesian5),
+    // Создаем новый простой движок для третьего визита
+    std::unique_ptr<DiagnosticEngine> simpleEngine6 = std::make_unique<DiagnosticEngine>(
+            std::make_unique<SimpleDiagnostic>(0.3f),
             &directory
             );
+    simpleEngine6->addChecker(std::make_unique<CriticalSymptomChecker>());
 
-    // Выполняем диагностику
-    std::unique_ptr<DiagnosisResult> resultVisit3 =
-        bayesianEngine5->diagnose(&visit3);
+    std::unique_ptr<DiagnosisResult> result7 = simpleEngine6->diagnose(&visit3);
 
-    // Создаем снимок
-    std::unique_ptr<DiagnosisMemento> snapshot3 =
-        patientHistory.createSnapshot(&visit3, resultVisit3.get(), "BayesianDiagnostic");
-
-    // Сохраняем снимок
-    medicalRecord.addSnapshot(std::move(snapshot3));
-    std::cout << "Снимок #3 сохранен\n\n";
+    DiagnosisMemento* snap3 = patientHistory.createAndStoreSnapshot(&visit3, result7.get(), "SimpleDiagnostic");
+    snap3->printSnapshot();
 
     // 1. Просмотр истории
     std::cout << "\n=== 1. Просмотр полной истории ===\n";
-    medicalRecord.printHistory();
+    patientHistory.printHistory();
 
     // 2. Просмотр краткой истории
     std::cout << "\n=== 2. Краткая история ===\n";
-    medicalRecord.printBriefHistory();
+    patientHistory.printBriefHistory();
 
     // 3. Сравнение первого и последнего снимков
-    std::cout << "\n=== 3. Сравнение первого и последнего снимков ===\n";
-    DiagnosisMemento* firstSnapshot = medicalRecord.getFirstSnapshot();
-    DiagnosisMemento* lastSnapshot = medicalRecord.getLastSnapshot();
-    DiagnosisHistory::compareSnapshots(firstSnapshot, lastSnapshot);
+    std::cout << "\n=== 3. Сравнение первого и второго снимков ===\n";
+    patientHistory.compareSnapshots(0, 1);
 
     // 4. Восстановление из снимка (просмотр старого диагноза)
     std::cout << "\n=== 4. Восстановление данных из снимка #1 ===\n";
-    DiagnosisMemento* snapshotToRestore = medicalRecord.getSnapshot(0);
-    if (snapshotToRestore) {
-        patientHistory.restoreFromSnapshot(snapshotToRestore);
-    }
+    patientHistory.restoreFromSnapshot(0);
 
     // 5. Хронология диагнозов
     std::cout << "\n=== 5. Хронология диагнозов ===\n";
-    std::vector<std::string> timeline = medicalRecord.getDiagnosisTimeline();
+    std::vector<std::string> timeline = patientHistory.getDiagnosisTimeline();
     for (size_t i = 0; i < timeline.size(); ++i) {
         std::cout << timeline[i] << "\n";
     }
-
 
     std::cout << "\n\n4. Observer\n\n";
 
