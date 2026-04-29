@@ -369,7 +369,6 @@ int main() {
 
     // Создаем строитель для опытного фельдшера
     ExperiencedFAPBuilder experiencedBuilder(&directory, "winter", 100);
-    experiencedBuilder.setNormalization(true);
 
     // Директор собирает полную конфигурацию
     director.setBuilder(&experiencedBuilder);
@@ -383,8 +382,7 @@ int main() {
     std::cout << "\n=== Сценарий 4: Опытный фельдшер (без прокси) ===\n";
 
     // Создаем строитель для опытного фельдшера
-    ExperiencedFAPBuilder noProxyBuilder(&directory, "winter", 100); 
-    noProxyBuilder.setNormalization(true);                                                        
+    ExperiencedFAPBuilder noProxyBuilder(&directory, "winter", 100);                                                      
 
     // Директор собирает полную конфигурацию
     director.setBuilder(&noProxyBuilder);

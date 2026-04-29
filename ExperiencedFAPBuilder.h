@@ -16,7 +16,8 @@ private:
 public:
     explicit ExperiencedFAPBuilder(DiseaseDirectory* dir,
         const std::string& season = "winter",
-        size_t cacheSize = 100);
+        size_t cacheSize = 100,
+        bool normalize = true);
 
     void buildAlgorithm() override;
     void buildCheckers() override;
@@ -28,6 +29,5 @@ public:
 
     // Методы настройки
     void setSeason(const std::string& s);
-    void setNormalization(bool enable);
     void setMaxCacheSize(size_t size);
 };

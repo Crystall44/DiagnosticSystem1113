@@ -9,10 +9,11 @@
 ExperiencedFAPBuilder::ExperiencedFAPBuilder(
     DiseaseDirectory* dir,
     const std::string& season,
-    size_t cacheSize)
+    size_t cacheSize,
+    bool normalize)
     : IDiagnosticEngineBuilder(dir),
     useProxy(true),
-    normalize(true),
+    normalize(normalize),  // из параметра конструктора
     season(season),
     maxCacheSize(cacheSize) {
 }
@@ -68,10 +69,6 @@ bool ExperiencedFAPBuilder::hasProxy() const {
 
 void ExperiencedFAPBuilder::setSeason(const std::string& s) {
     season = s;
-}
-
-void ExperiencedFAPBuilder::setNormalization(bool enable) {
-    normalize = enable;
 }
 
 void ExperiencedFAPBuilder::setMaxCacheSize(size_t size) {
